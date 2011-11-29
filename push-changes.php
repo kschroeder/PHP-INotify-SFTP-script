@@ -49,6 +49,9 @@ while ($events = inotify_read(INotifyManager::getWatchDescriptor())) {
                         case ($event['mask'] & IN_DELETE):
 				handleDelete($event['name'], $event['wd']);
                         break;
+			default:
+//				echo $event['mask'] . ' ';
+			break;
 
 		}
 	}
@@ -67,6 +70,7 @@ function handleModify($wd) {
 function handleCreate($file, $wd) {
 	$fileName = INotifyManager::getWatchName($wd) . '/' . $file;
 	echo "{$fileName} created\n";
+	addWatch($fileName);
 	if (is_dir($fileName)) {
 		SSHManager::mkdir($fileName);
 	} else {
@@ -75,7 +79,6 @@ function handleCreate($file, $wd) {
                 );
 
 	}
-	addWatch($fileName);
 }
 
 function handleDelete($file, $wd) {
@@ -95,7 +98,7 @@ function addWatch($file) {
 			addWatch($dir);
 		}
 	}
-	if (!file_exists($file)) return;
+	if (!file_exists($file)) return; 
 	$watch = inotify_add_watch(INotifyManager::getWatchDescriptor(), $file, IN_ALL_EVENTS);
 	INotifyManager::setWatchName($watch, $file);
 	echo "Watching {$file}\n";
@@ -143,7 +146,10 @@ class SSHManager
 		}
 		$remoteFilename = self::convertLocalFilename($filename);
 		echo "put($filename $remoteFilename)\n";
-		ssh2_scp_send(self::$ssh, $filename, $remoteFilename);
+		$sftp = ssh2_sftp(self::$ssh);
+		$fh = fopen("ssh2.sftp://" . $sftp . $remoteFilename, 'w');
+		fwrite($fh, file_get_contents($filename));
+		return;
 	}
 
 	public static function convertLocalFilename($filename)
